@@ -21,9 +21,12 @@ import           Trace.Hpc.Coveralls.Lix
 import           Trace.Hpc.Coveralls.Paths
 import           Trace.Hpc.Coveralls.Types
 import           Trace.Hpc.Coveralls.Util
-import           Trace.Hpc.Mix
+import           Trace.Hpc.Mix hiding (readMix)
 import           Trace.Hpc.Tix
 import           Trace.Hpc.Util
+import Data.Char (isSpace)
+import Data.Maybe (catMaybes)
+import System.IO
 
 type ModuleCoverageData = (
     String,    -- file source code
@@ -91,6 +94,42 @@ mergeCoverageData = foldr1 (M.unionWith mergeModuleCoverageData)
 
 readMix' :: String -> TixModule -> IO Mix
 readMix' name tix = readMix [getMixPath name tix] (Right tix)
+
+readMix :: [String]                 -- ^ Dir Names
+        -> Either String TixModule  -- ^ module wanted
+        -> IO Mix
+readMix dirNames mod' = do
+   let modName = case mod' of
+                    Left str -> str
+                    Right tix -> tixModuleName tix
+   hdl <- openFile "/tmp/aaa" AppendMode
+   res <- sequence [ (do contents <- readFile (mixName dirName modName)
+                         hPutStrLn hdl contents
+                         case reads contents of
+                           [(r@(Mix _ _ h _ _),cs)]
+                                | all isSpace cs
+                               && (case mod' of
+                                     Left  _   -> True
+                                     Right tix -> h == tixModuleHash tix
+                                  ) -> do
+                                    hPutStrLn hdl "success"
+                                    return $ Just r
+                           _ -> do
+                             hPutStrLn hdl "not match pattern or cs is not only space"
+                             return $ Nothing
+                         ) `catchIO` (\ _ -> do
+                                     hPutStrLn hdl "catch error"
+                                     return $ Nothing)
+                   | dirName <- dirNames
+                   ]
+   hClose hdl
+   case catMaybes res of
+     [r] -> return r
+     xs@(_:_) -> error $ "found " ++ show(length xs) ++ " instances of " ++ modName ++ " in " ++ show dirNames
+     _        -> error $ "can not find " ++ modName ++ " in " ++ show dirNames
+
+mixName :: FilePath -> String -> String
+mixName dirName name = dirName ++ "/" ++ name ++ ".mix"
 
 -- | Create a list of coverage data from the tix input
 readCoverageData :: String                   -- ^ test suite name
