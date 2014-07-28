@@ -26,7 +26,6 @@ import           Trace.Hpc.Tix
 import           Trace.Hpc.Util
 import Data.Char (isSpace)
 import Data.Maybe (catMaybes)
-import System.IO
 
 type ModuleCoverageData = (
     String,    -- file source code
@@ -102,9 +101,8 @@ readMix dirNames mod' = do
    let modName = case mod' of
                     Left str -> str
                     Right tix -> tixModuleName tix
-   hdl <- openFile "/tmp/aaa" AppendMode
    res <- sequence [ (do contents <- readFile (mixName dirName modName)
-                         hPutStrLn hdl contents
+                         print contents
                          case reads contents of
                            [(r@(Mix _ _ h _ _),cs)]
                                 | all isSpace cs
@@ -112,17 +110,25 @@ readMix dirNames mod' = do
                                      Left  _   -> True
                                      Right tix -> h == tixModuleHash tix
                                   ) -> do
-                                    hPutStrLn hdl "success"
+                                    print "success"
                                     return $ Just r
+                                | all isSpace cs -> do
+                                  print "not accord hash of tix"
+                                  return Nothing
+                                | (case mod' of
+                                     Left  _   -> True
+                                     Right tix -> h == tixModuleHash tix
+                                  ) -> do
+                                    print "cs is not only space"
+                                    return Nothing
                            _ -> do
-                             hPutStrLn hdl "not match pattern or cs is not only space"
+                             print "fail pattern match"
                              return $ Nothing
                          ) `catchIO` (\ _ -> do
-                                     hPutStrLn hdl "catch error"
+                                     print "catch error"
                                      return $ Nothing)
                    | dirName <- dirNames
                    ]
-   hClose hdl
    case catMaybes res of
      [r] -> return r
      xs@(_:_) -> error $ "found " ++ show(length xs) ++ " instances of " ++ modName ++ " in " ++ show dirNames
