@@ -110,12 +110,16 @@ readMix dirNames mod' = do
                                      Right tix -> h == tixModuleHash tix
                                   ) -> do
                                     print "success"
-                                    print $ tixModuleHash tix
+                                    case mod' of
+                                      Left  _   -> print "aaa"
+                                      Right tix -> print $ tixModuleHash tix
                                     print $ take 100 contents
                                     return $ Just r
                                 | all isSpace cs -> do
                                   print "not accord hash of tix"
-                                  print $ tixModuleHash tix
+                                  case mod' of
+                                    Left  _   -> print "aaa"
+                                    Right tix -> print $ tixModuleHash tix
                                   print $ take 100 contents
                                   return Nothing
                                 | (case mod' of
