@@ -102,18 +102,19 @@ readMix dirNames mod' = do
                     Left str -> str
                     Right tix -> tixModuleName tix
    res <- sequence [ (do contents <- readFile (mixName dirName modName)
-                         print contents
                          case reads contents of
-                           [(r@(Mix _ _ h _ _),cs)]
+                           [(r@(Mix a b h c _),cs)]
                                 | all isSpace cs
                                && (case mod' of
                                      Left  _   -> True
                                      Right tix -> h == tixModuleHash tix
                                   ) -> do
                                     print "success"
+                                    print $ a ++ " " ++ b ++ " " ++ h ++ " " ++ c
                                     return $ Just r
                                 | all isSpace cs -> do
                                   print "not accord hash of tix"
+                                  print $ a ++ " " ++ b ++ " " ++ h ++ " " ++ c
                                   return Nothing
                                 | (case mod' of
                                      Left  _   -> True
